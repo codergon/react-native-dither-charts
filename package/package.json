@@ -1,0 +1,27 @@
+{
+  "name": "react-native-dither-charts",
+  "version": "0.0.1",
+  "description": "Dithered chart primitives for React Native Skia.",
+  "main": "dist/index.js",
+  "react-native": "src/index.ts",
+  "types": "dist/index.d.ts",
+  "source": "src/index.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "peerDependencies": {
+    "@shopify/react-native-skia": ">=2.2.12",
+    "react": ">=19.1.0",
+    "react-native": ">=0.81.0",
+    "react-native-reanimated": ">=4.1.0"
+  },
+  "devDependencies": {
+    "@shopify/react-native-skia": "2.2.12",
+    "react": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-reanimated": "4.1.1"
+  },
+  "sideEffects": false,
+  "license": "MIT"
+}

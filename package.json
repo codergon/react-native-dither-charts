@@ -1,0 +1,23 @@
+{
+  "name": "react-native-dither-charts",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Dithered chart primitives for React Native Skia.",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "example": "yarn --cwd example start"
+  },
+  "engines": {
+    "node": "^22.13.0 || ^24.3.0 || >=25.0.0"
+  },
+  "workspaces": [
+    "package",
+    "example"
+  ],
+  "devDependencies": {
+    "@types/react": "~19.1.10",
+    "typescript": "^5.9.3"
+  },
+  "packageManager": "yarn@1.22.22"
+}

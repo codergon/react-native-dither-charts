@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "Dither Charts",
+    "slug": "dither-charts",
+    "version": "0.0.1",
+    "orientation": "portrait",
+    "scheme": "dithercharts",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#FAFAF8"
+      }
+    }
+  }
+}
