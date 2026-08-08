@@ -27,7 +27,7 @@ export function DitherRadarChart({
   onScrub,
   focusOnPress = true,
   focusedSeries,
-  dimOpacity: _dimOpacity = 0.24,
+  dimOpacity = 0.24,
   onSeriesFocus
 }: RadarChartProps) {
   const centerX = width / 2;
@@ -198,6 +198,7 @@ export function DitherRadarChart({
         {seriesPaths.map((entry, index) => {
           const source = series[index];
           const color = source.color ?? colors[index % colors.length];
+          const isDimmed = resolvedFocusedSeries != null && resolvedFocusedSeries !== index;
           return (
             <React.Fragment key={`radar-series-${source.label}-${index}`}>
               <Group clip={entry.path}>
@@ -217,14 +218,14 @@ export function DitherRadarChart({
                     }
                   }
                   clip={false}
-                  opacity={fillOpacity}
+                  opacity={fillOpacity * (isDimmed ? dimOpacity : 1)}
                   densityProgress={entry.densityProgress}
                 />
               </Group>
               <Path
                 path={entry.path}
                 color={color}
-                opacity={1}
+                opacity={isDimmed ? dimOpacity : 1}
                 style="stroke"
                 strokeWidth={0.45}
               />

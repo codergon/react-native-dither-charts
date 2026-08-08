@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import { Canvas, Group, Path, Rect, Skia } from "@shopify/react-native-skia";
 import { View } from "react-native";
 import { XAxisLabels, YAxisLabels } from "./ChartAxis";
 import { DitherPattern } from "./DitherPattern";
 import { ScrubGuide, TooltipLayer } from "./DitherTooltip";
+import { curveYAtX, offsetBand, tracePoints } from "./lineGeometry";
 import { defaultSeriesColors } from "./palette";
 import { clamp, generateYTicks, nearestIndexFromX } from "./utils";
 import { useScrub } from "./useScrub";
@@ -80,15 +81,13 @@ export function DitherMultiLineChart({
 
   const scrubConfig = typeof scrub === "object" ? scrub : undefined;
   const scrubEnabled = Boolean(onScrub) || Boolean(tooltip) || Boolean(scrub);
-  const snapPoint = useCallback(
-    (point: { x: number; y: number }) => {
-      if (pointCount === 0) return point;
-      const index = nearestIndexFromX(point.x, step, pointCount);
-      return { x: index * step, y: 0 };
-    },
-    [pointCount, step]
-  );
-  const { scrubX, handlers } = useScrub(plotWidth, scrubEnabled, undefined, snapPoint);
+  // No snapPoint here on purpose: snapping the guide itself to the nearest data index
+  // made it visibly lag behind the finger between two widely-spaced points (the more
+  // sparse the data, the bigger that dead zone). The guide now tracks the raw touch
+  // position continuously — see the render below — while the tooltip/onScrub value
+  // still snaps to the nearest actual data point, since there's nothing to show
+  // in between two months.
+  const { scrubX, handlers } = useScrub(plotWidth, scrubEnabled, undefined, undefined);
   const scrubIndex = scrubX == null || pointCount === 0 ? null : nearestIndexFromX(scrubX, step, pointCount);
 
   useEffect(() => {
@@ -120,6 +119,16 @@ export function DitherMultiLineChart({
           <YAxisLabels ticks={yTicks} width={yAxisWidth} height={plotHeight} config={yAxisConfig} />
         ) : null}
         <View style={{ width: plotWidth, height: plotHeight }} {...(handlers ?? {})}>
+          {/*
+            The dithered bands and a live scrub dot are split into separate Canvases
+            on purpose. A Skia Canvas re-rasterizes its *entire* content whenever
+            anything inside it changes — so with the dot in the same Canvas as the
+            dense dither patterns, dragging forced every band (thousands of small
+            shapes each) to be redrawn on every touch-move frame, independent of
+            React-level memoization. The bands don't depend on scrubIndex at all, so
+            keeping them in their own Canvas means they're untouched by the scrub
+            Canvas repainting on top of them every frame.
+          */}
           <Canvas style={{ width: plotWidth, height: plotHeight }} pointerEvents="none">
             {backgroundColor ? (
               <Rect x={0} y={0} width={plotWidth} height={plotHeight} color={backgroundColor} />
@@ -149,20 +158,25 @@ export function DitherMultiLineChart({
                 </React.Fragment>
               );
             })}
-            {scrubIndex != null ? (
+          </Canvas>
+          {scrubX != null ? (
+            <Canvas
+              style={{ position: "absolute", left: 0, top: 0, width: plotWidth, height: plotHeight }}
+              pointerEvents="none"
+            >
               <ScrubGuide
-                x={scrubIndex * step}
+                x={scrubX}
                 height={plotHeight}
                 color={colors[0]}
                 dots={paths.map((entry, seriesIndex) => ({
-                  y: entry.points[scrubIndex]?.y ?? 0,
+                  y: curveYAtX(entry.points, scrubX, curve),
                   color: series[seriesIndex].color ?? colors[seriesIndex % colors.length]
                 }))}
                 config={scrubConfig}
               />
-            ) : null}
-          </Canvas>
-          {scrubIndex != null ? (
+            </Canvas>
+          ) : null}
+          {scrubIndex != null && scrubX != null ? (
             <TooltipLayer
               tooltip={tooltip}
               info={{
@@ -173,8 +187,8 @@ export function DitherMultiLineChart({
                 },
                 value: series[0]?.values[scrubIndex] ?? 0,
                 values: series.map((entry) => entry.values[scrubIndex] ?? 0),
-                x: scrubIndex * step,
-                y: paths[0]?.points[scrubIndex]?.y,
+                x: scrubX,
+                y: curveYAtX(paths[0]?.points ?? [], scrubX, curve),
                 width: plotWidth,
                 height: plotHeight
               }}
@@ -189,78 +203,3 @@ export function DitherMultiLineChart({
   );
 }
 
-type Point = { x: number; y: number };
-
-// Offsetting each point straight up/down by bandWidth/2 keeps the *vertical* gap
-// constant, but the band visibly pinches on steep slopes because the perpendicular
-// thickness the eye actually sees shrinks by cos(slope angle). Offsetting along each
-// point's local normal (perpendicular to its tangent, approximated from its
-// neighbors) keeps the band a constant width regardless of slope.
-function offsetBand(points: Point[], bandWidth: number) {
-  const halfWidth = bandWidth / 2;
-  const upper: Point[] = [];
-  const lower: Point[] = [];
-
-  for (let index = 0; index < points.length; index += 1) {
-    const previous = points[index - 1] ?? points[index];
-    const next = points[index + 1] ?? points[index];
-    const dx = next.x - previous.x;
-    const dy = next.y - previous.y;
-    const length = Math.hypot(dx, dy) || 1;
-    const normalX = -dy / length;
-    const normalY = dx / length;
-    const point = points[index];
-    upper.push({ x: point.x - normalX * halfWidth, y: point.y - normalY * halfWidth });
-    lower.push({ x: point.x + normalX * halfWidth, y: point.y + normalY * halfWidth });
-  }
-
-  return { upper, lower };
-}
-
-function tracePoints(
-  path: ReturnType<typeof Skia.Path.Make>,
-  points: Point[],
-  curve: "linear" | "smooth",
-  moveToStart = true
-) {
-  if (points.length === 0) return;
-  if (moveToStart) path.moveTo(points[0].x, points[0].y);
-  else path.lineTo(points[0].x, points[0].y);
-
-  for (let index = 0; index < points.length - 1; index += 1) {
-    const current = points[index];
-    const next = points[index + 1];
-    if (curve === "linear") {
-      path.lineTo(next.x, next.y);
-      continue;
-    }
-    const previous = points[index - 1] ?? current;
-    const afterNext = points[index + 2] ?? next;
-    path.cubicTo(
-      current.x + (next.x - previous.x) / 6,
-      current.y + (next.y - previous.y) / 6,
-      next.x - (afterNext.x - current.x) / 6,
-      next.y - (afterNext.y - current.y) / 6,
-      next.x,
-      next.y
-    );
-  }
-}
-
-function curveYAtX(points: Point[], x: number, curve: "linear" | "smooth") {
-  if (points.length === 0) return 0;
-  if (points.length === 1 || x <= points[0].x) return points[0].y;
-  if (x >= points[points.length - 1].x) return points[points.length - 1].y;
-  const step = points[1].x - points[0].x;
-  const index = Math.min(Math.floor((x - points[0].x) / step), points.length - 2);
-  const current = points[index];
-  const next = points[index + 1];
-  const t = clamp((x - current.x) / Math.max(next.x - current.x, 0.001), 0, 1);
-  if (curve === "linear") return current.y + (next.y - current.y) * t;
-  const previous = points[index - 1] ?? current;
-  const afterNext = points[index + 2] ?? next;
-  const control1 = current.y + (next.y - previous.y) / 6;
-  const control2 = next.y - (afterNext.y - current.y) / 6;
-  const inverse = 1 - t;
-  return inverse ** 3 * current.y + 3 * inverse ** 2 * t * control1 + 3 * inverse * t ** 2 * control2 + t ** 3 * next.y;
-}

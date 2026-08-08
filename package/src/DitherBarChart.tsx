@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Canvas, Rect } from "@shopify/react-native-skia";
 import { View } from "react-native";
 import { ditherPalette } from "./palette";
-import { clamp, generateYTicks, nearestIndexByCenters } from "./utils";
+import { clamp, generateYTicks, nearestIndexByCenters, resolveDither } from "./utils";
 import { DitherPattern } from "./DitherPattern";
+import { FocusCrossfade } from "./FocusCrossfade";
 import { TooltipLayer } from "./DitherTooltip";
 import { XAxisLabels, YAxisLabels } from "./ChartAxis";
 import { useScrub } from "./useScrub";
@@ -25,7 +26,13 @@ export function DitherBarChart({
   yAxis,
   tooltip,
   scrub,
-  onScrub
+  onScrub,
+  focusOnPress = true,
+  focusedIndex,
+  dimOpacity = 0.24,
+  activeSolidFrom = 0.9,
+  focusAnimationDuration = 180,
+  onItemFocus
 }: BarChartProps) {
   const yAxisConfig = yAxis?.visible ? yAxis : undefined;
   const xAxisConfig = xAxis?.visible ? xAxis : undefined;
@@ -34,8 +41,6 @@ export function DitherBarChart({
   const plotWidth = Math.max(width - yAxisWidth, 0);
   const plotHeight = Math.max(height - xAxisHeight, 0);
 
-  const scrubEnabled = Boolean(onScrub) || Boolean(tooltip) || Boolean(scrub);
-
   const resolvedMax = maxValue ?? Math.max(...data.map((item) => item.value), 1);
   const barWidth = data.length > 0 ? (plotWidth - spacing * (data.length - 1)) / data.length : 0;
   const centers = useMemo(
@@ -43,16 +48,61 @@ export function DitherBarChart({
     [data, barWidth, spacing]
   );
 
+  const [internalFocusedIndex, setInternalFocusedIndex] = useState<number | null>(null);
+  const resolvedFocusedIndex = focusedIndex === undefined ? internalFocusedIndex : focusedIndex;
+  const setFocusedIndex = useCallback(
+    (next: number | null) => {
+      if (focusedIndex === undefined) setInternalFocusedIndex(next);
+      onItemFocus?.(next);
+    },
+    [focusedIndex, onItemFocus]
+  );
+
+  const hitBarIndex = useCallback(
+    ({ x, y }: { x: number; y: number }) => {
+      const index = nearestIndexByCenters(x, centers);
+      const barX = index * (barWidth + spacing);
+      const barHeight = clamp(data[index]?.value / resolvedMax, 0, 1) * plotHeight;
+      const barTop = plotHeight - barHeight;
+      if (x < barX || x > barX + barWidth || y < barTop || y > plotHeight) return null;
+      return index;
+    },
+    [barWidth, centers, data, plotHeight, resolvedMax, spacing]
+  );
+
+  const focusFromPoint = useCallback(
+    (point: { x: number; y: number }) => {
+      const hitIndex = hitBarIndex(point);
+      setFocusedIndex(hitIndex === resolvedFocusedIndex ? null : hitIndex);
+    },
+    [hitBarIndex, resolvedFocusedIndex, setFocusedIndex]
+  );
+
   const snapPoint = useCallback(
     (point: { x: number; y: number }) => {
       if (centers.length === 0) return point;
       const index = nearestIndexByCenters(point.x, centers);
-      return { x: centers[index], y: 0 };
+      return { x: centers[index], y: point.y };
     },
     [centers]
   );
-  const { scrubX, handlers } = useScrub(plotWidth, scrubEnabled, undefined, snapPoint);
-  const scrubIndex = scrubX == null || data.length === 0 ? null : nearestIndexByCenters(scrubX, centers);
+  const scrubEnabled = Boolean(onScrub) || Boolean(tooltip) || Boolean(scrub) || focusOnPress;
+  const { scrubX, scrubY, isScrubbing, handlers } = useScrub(
+    plotWidth,
+    scrubEnabled,
+    focusOnPress ? focusFromPoint : undefined,
+    snapPoint,
+    focusOnPress
+  );
+  const rawScrubIndex =
+    scrubX == null || scrubY == null || data.length === 0
+      ? null
+      : hitBarIndex({ x: scrubX, y: scrubY });
+  const scrubIndex = focusOnPress
+    ? isScrubbing || resolvedFocusedIndex != null
+      ? rawScrubIndex
+      : null
+    : rawScrubIndex;
 
   useEffect(() => {
     if (!onScrub) return;
@@ -90,18 +140,42 @@ export function DitherBarChart({
               const y = plotHeight - barHeight;
               const itemColor = item.color ?? color;
               const isActive = scrubIndex === index;
+              const isDimmed = scrubIndex != null && scrubIndex !== index;
+              const barOpacity = (isActive ? 1 : fillOpacity) * (isDimmed ? dimOpacity : 1);
+              const focusedDither = {
+                ...resolveDither(dither),
+                solidFrom: activeSolidFrom
+              };
 
               return (
                 <React.Fragment key={`${item.label ?? "bar"}-${index}`}>
-                  <DitherPattern
-                    x={x}
-                    y={y}
-                    width={barWidth}
-                    height={barHeight}
-                    radius={barRadius}
-                    color={itemColor}
-                    opacity={isActive ? 1 : fillOpacity}
-                    dither={dither}
+                  <FocusCrossfade
+                    active={isActive}
+                    duration={focusAnimationDuration}
+                    resting={
+                      <DitherPattern
+                        x={x}
+                        y={y}
+                        width={barWidth}
+                        height={barHeight}
+                        radius={barRadius}
+                        color={itemColor}
+                        opacity={barOpacity}
+                        dither={dither}
+                      />
+                    }
+                    focused={
+                      <DitherPattern
+                        x={x}
+                        y={y}
+                        width={barWidth}
+                        height={barHeight}
+                        radius={barRadius}
+                        color={itemColor}
+                        opacity={barOpacity}
+                        dither={focusedDither}
+                      />
+                    }
                   />
                 </React.Fragment>
               );

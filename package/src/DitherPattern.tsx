@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Group, LinearGradient, Path, Skia, rrect, rect, vec } from "@shopify/react-native-skia";
+import { Group, LinearGradient, Path, Rect, Skia, rrect, rect, vec } from "@shopify/react-native-skia";
 import { clamp, resolveDither } from "./utils";
 import type { DitherOptions } from "./types";
 
@@ -26,6 +26,8 @@ const BAYER_8 = [
   [15, 47, 7, 39, 13, 45, 5, 37],
   [63, 31, 55, 23, 61, 29, 53, 21]
 ] as const;
+
+const modulo = (value: number, divisor: number) => ((value % divisor) + divisor) % divisor;
 
 function DitherPatternComponent({
   x,
@@ -139,15 +141,40 @@ function DitherPatternComponent({
       return { primary, secondary };
     }
 
-    for (let lineX = x - height; lineX < x + width; lineX += options.gap) {
-      primary.moveTo(lineX, y + height);
-      primary.lineTo(lineX + height, y);
+    const cell = options.cellSize;
+    const stroke = Math.max(options.strokeWidth, cell);
+
+    for (let pixelY = y; pixelY < y + height; pixelY += cell) {
+      for (let pixelX = x; pixelX < x + width; pixelX += cell) {
+        const diagonal = modulo(pixelX - x + (pixelY - y), options.gap);
+        if (diagonal <= stroke) {
+          primary.addRect(
+            rect(
+              pixelX,
+              pixelY,
+              Math.min(cell, x + width - pixelX),
+              Math.min(cell, y + height - pixelY)
+            )
+          );
+        }
+      }
     }
 
     if (options.variant === "crosshatch") {
-      for (let lineX = x; lineX < x + width + height; lineX += options.gap) {
-        secondary.moveTo(lineX, y);
-        secondary.lineTo(lineX - height, y + height);
+      for (let pixelY = y; pixelY < y + height; pixelY += cell) {
+        for (let pixelX = x; pixelX < x + width; pixelX += cell) {
+          const diagonal = modulo(pixelX - x - (pixelY - y), options.gap);
+          if (diagonal <= stroke) {
+            secondary.addRect(
+              rect(
+                pixelX,
+                pixelY,
+                Math.min(cell, x + width - pixelX),
+                Math.min(cell, y + height - pixelY)
+              )
+            );
+          }
+        }
       }
     }
 
@@ -156,13 +183,23 @@ function DitherPatternComponent({
 
   const marks = (
     <>
+      {!hydrated && options.variant !== "solid" ? (
+        <Rect
+          x={x}
+          y={y}
+          width={width}
+          height={height}
+          color={options.color ?? color}
+          opacity={options.opacity * opacity * 0.14}
+        />
+      ) : null}
       <Path
         path={paths.primary}
         color={options.color ?? color}
         opacity={options.opacity * opacity}
-        style={options.variant === "hatched" || options.variant === "crosshatch" ? "stroke" : "fill"}
+        style="fill"
         strokeWidth={options.strokeWidth}
-        strokeCap="butt"
+        strokeCap="square"
         strokeJoin="miter"
         antiAlias
       >
@@ -179,9 +216,9 @@ function DitherPatternComponent({
           path={paths.secondary}
           color={options.color ?? color}
           opacity={options.opacity * opacity * 0.72}
-          style="stroke"
+          style="fill"
           strokeWidth={options.strokeWidth}
-          strokeCap="butt"
+          strokeCap="square"
           strokeJoin="miter"
           antiAlias
         />
@@ -225,7 +262,7 @@ function ditherOptionsEqual(
     previous?.dotSize === next?.dotSize &&
     previous?.endDensity === next?.endDensity &&
     previous?.gap === next?.gap &&
-    previous?.gradientColors === next?.gradientColors &&
+    gradientColorsEqual(previous?.gradientColors, next?.gradientColors) &&
     previous?.jitter === next?.jitter &&
     previous?.opacity === next?.opacity &&
     previous?.pattern === next?.pattern &&
@@ -234,4 +271,18 @@ function ditherOptionsEqual(
     previous?.strokeWidth === next?.strokeWidth &&
     previous?.variant === next?.variant
   );
+}
+
+// `gradientColors` is the one array-valued option. Comparing it by reference means
+// any caller who builds `dither={{ ..., gradientColors: [a, b] }}` inline in JSX (a
+// perfectly normal thing to do) gets a fresh array every render, which — despite
+// every other field matching — fails this equality check and forces the whole
+// per-cell dither pattern to be rebuilt from scratch on every parent re-render.
+function gradientColorsEqual(
+  previous: [string, string] | undefined,
+  next: [string, string] | undefined
+) {
+  if (previous === next) return true;
+  if (!previous || !next) return false;
+  return previous[0] === next[0] && previous[1] === next[1];
 }

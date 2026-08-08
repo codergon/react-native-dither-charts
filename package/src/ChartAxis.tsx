@@ -44,7 +44,18 @@ export function XAxisLabels({
   style?: ViewStyle;
 }) {
   return (
-    <View style={[{ width, flexDirection: "row", justifyContent: "space-between", paddingTop: 8 }, style]}>
+    <View
+      style={[
+        {
+          width,
+          flexDirection: "row",
+          justifyContent: "space-between",
+          paddingTop: 8,
+          paddingHorizontal: config?.labelInset ?? 0
+        },
+        style
+      ]}
+    >
       {labels.map((label, index) => (
         <Text
           key={`${label}-${index}`}

@@ -68,6 +68,12 @@ export type AxisConfig = {
   ticks?: number;
   /** Width (y-axis) or height (x-axis) reserved for the label gutter. */
   size?: number;
+  /**
+   * Horizontal breathing room (in px) for the first/last x-axis label, so they don't
+   * sit flush against the edges when the chart itself is rendered full-bleed. Ignored
+   * on the y-axis.
+   */
+  labelInset?: number;
   formatLabel?: (value: any, index: number) => string;
   labelColor?: string;
   fontSize?: number;
@@ -157,10 +163,14 @@ export type ItemFocusProps = {
   focusedIndex?: number | null;
   /** Opacity multiplier applied to unfocused items. Defaults to 0.24. */
   dimOpacity?: number;
+  /** Dither progress where the focused item begins its denser active transition. Defaults to 0.9. */
+  activeSolidFrom?: number;
+  /** Focus transition duration in milliseconds. Defaults to 180. */
+  focusAnimationDuration?: number;
   onItemFocus?: (itemIndex: number | null) => void;
 };
 
-export type BarChartProps = ChartBaseProps & {
+export type BarChartProps = ChartBaseProps & ItemFocusProps & {
   data: ChartDatum[];
   barRadius?: number;
   maxValue?: number;
@@ -197,13 +207,30 @@ export type StackedAreaChartProps = ChartBaseProps & SeriesFocusProps & {
 
 export type LineChartProps = ChartBaseProps & {
   data: LineChartDatum[];
+  /** Overrides the value the top of the chart represents. Defaults to the data's own max — pass a larger value to reserve empty headroom above the curve (e.g. for a pinned tooltip). */
+  maxValue?: number;
+  /** Overrides the value the bottom of the chart represents. Defaults to 0 — set this near the data's own min for a windowed "price chart" look instead of always anchoring to zero. */
+  minValue?: number;
   color?: string;
   strokeWidth?: number;
   fillColor?: string;
   fillOpacity?: number;
   showArea?: boolean;
+  /**
+   * Renders the line as a dithered band of this width around itself — the same
+   * technique DitherMultiLineChart uses per series — instead of a plain stroke.
+   * Takes priority over `showArea` and replaces the center-line stroke entirely
+   * (so `futureColor` has no effect while a band is active).
+   */
+  bandWidth?: number;
   curve?: "linear" | "smooth";
   onScrub?: (info: ScrubInfo<LineChartDatum>) => void;
+  /**
+   * While scrubbing, renders the portion of the line after the touched point in this
+   * color instead of `color` — e.g. a ticker chart fading out everything past "now"
+   * relative to a historical point you're inspecting. No effect while not scrubbing.
+   */
+  futureColor?: string;
 };
 
 export type MultiLineChartProps = ChartBaseProps & {
