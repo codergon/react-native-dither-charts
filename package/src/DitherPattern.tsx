@@ -27,8 +27,6 @@ const BAYER_8 = [
   [63, 31, 55, 23, 61, 29, 53, 21]
 ] as const;
 
-const modulo = (value: number, divisor: number) => ((value % divisor) + divisor) % divisor;
-
 function DitherPatternComponent({
   x,
   y,
@@ -65,6 +63,7 @@ function DitherPatternComponent({
       dither?.jitter,
       dither?.opacity,
       dither?.pattern,
+      dither?.pixelated,
       dither?.solidFrom,
       dither?.startDensity,
       dither?.strokeWidth,
@@ -141,40 +140,23 @@ function DitherPatternComponent({
       return { primary, secondary };
     }
 
-    const cell = options.cellSize;
-    const stroke = Math.max(options.strokeWidth, cell);
-
-    for (let pixelY = y; pixelY < y + height; pixelY += cell) {
-      for (let pixelX = x; pixelX < x + width; pixelX += cell) {
-        const diagonal = modulo(pixelX - x + (pixelY - y), options.gap);
-        if (diagonal <= stroke) {
-          primary.addRect(
-            rect(
-              pixelX,
-              pixelY,
-              Math.min(cell, x + width - pixelX),
-              Math.min(cell, y + height - pixelY)
-            )
-          );
-        }
+    if (options.pixelated) {
+      addPixelHatch(primary, x, y, width, height, options.cellSize, options.gap, options.strokeWidth, -1);
+      if (options.variant === "crosshatch") {
+        addPixelHatch(secondary, x, y, width, height, options.cellSize, options.gap, options.strokeWidth, 1);
       }
+      return { primary, secondary };
+    }
+
+    for (let lineX = x - height; lineX < x + width; lineX += options.gap) {
+      primary.moveTo(lineX, y + height);
+      primary.lineTo(lineX + height, y);
     }
 
     if (options.variant === "crosshatch") {
-      for (let pixelY = y; pixelY < y + height; pixelY += cell) {
-        for (let pixelX = x; pixelX < x + width; pixelX += cell) {
-          const diagonal = modulo(pixelX - x - (pixelY - y), options.gap);
-          if (diagonal <= stroke) {
-            secondary.addRect(
-              rect(
-                pixelX,
-                pixelY,
-                Math.min(cell, x + width - pixelX),
-                Math.min(cell, y + height - pixelY)
-              )
-            );
-          }
-        }
+      for (let lineX = x; lineX < x + width + height; lineX += options.gap) {
+        secondary.moveTo(lineX, y);
+        secondary.lineTo(lineX - height, y + height);
       }
     }
 
@@ -197,9 +179,9 @@ function DitherPatternComponent({
         path={paths.primary}
         color={options.color ?? color}
         opacity={options.opacity * opacity}
-        style="fill"
+        style={options.pixelated || options.variant === "gradient" || options.variant === "dotted" || options.variant === "solid" ? "fill" : "stroke"}
         strokeWidth={options.strokeWidth}
-        strokeCap="square"
+        strokeCap={options.pixelated ? "square" : "butt"}
         strokeJoin="miter"
         antiAlias
       >
@@ -216,9 +198,9 @@ function DitherPatternComponent({
           path={paths.secondary}
           color={options.color ?? color}
           opacity={options.opacity * opacity * 0.72}
-          style="fill"
+          style={options.pixelated ? "fill" : "stroke"}
           strokeWidth={options.strokeWidth}
-          strokeCap="square"
+          strokeCap={options.pixelated ? "square" : "butt"}
           strokeJoin="miter"
           antiAlias
         />
@@ -233,6 +215,44 @@ function DitherPatternComponent({
     : rect(x, y, width, height);
 
   return <Group clip={clipShape}>{marks}</Group>;
+}
+
+function addPixelHatch(
+  path: ReturnType<typeof Skia.Path.Make>,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  cellSize: number,
+  gap: number,
+  strokeWidth: number,
+  direction: 1 | -1
+) {
+  const cell = Math.max(cellSize, 0.75);
+  const stripeCells = Math.max(Math.round(strokeWidth / cell), 1);
+  const periodCells = Math.max(Math.round(gap / cell), stripeCells + 1);
+  const stripeWidth = stripeCells * cell;
+  const period = periodCells * cell;
+  const rows = Math.ceil(height / cell);
+  const start = -height - period;
+  const end = width + height + period;
+
+  for (let row = 0; row < rows; row += 1) {
+    const pixelY = y + row * cell;
+    const rowHeight = Math.min(cell, y + height - pixelY);
+    const rowOffset = direction * row * cell;
+
+    for (let stripeX = start; stripeX < end; stripeX += period) {
+      const pixelX = x + stripeX + rowOffset;
+      const clippedX = Math.max(pixelX, x);
+      const clippedRight = Math.min(pixelX + stripeWidth, x + width);
+      const clippedWidth = clippedRight - clippedX;
+
+      if (clippedWidth > 0 && rowHeight > 0) {
+        path.addRect(rect(clippedX, pixelY, clippedWidth, rowHeight));
+      }
+    }
+  }
 }
 
 export const DitherPattern = React.memo(
@@ -266,6 +286,7 @@ function ditherOptionsEqual(
     previous?.jitter === next?.jitter &&
     previous?.opacity === next?.opacity &&
     previous?.pattern === next?.pattern &&
+    previous?.pixelated === next?.pixelated &&
     previous?.solidFrom === next?.solidFrom &&
     previous?.startDensity === next?.startDensity &&
     previous?.strokeWidth === next?.strokeWidth &&

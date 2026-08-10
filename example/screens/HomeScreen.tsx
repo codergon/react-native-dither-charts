@@ -60,7 +60,9 @@ const EXAMPLES: ExampleEntry[] = [
     route: "AreaChart",
     title: "Area Chart",
     icon: (theme) => (
-      <View style={[styles.icon, styles.iconTile, { backgroundColor: theme.text }]}>
+      <View
+        style={[styles.icon, styles.iconTile, { backgroundColor: theme.text }]}
+      >
         <MusicNotesIcon size={16} color={theme.background} weight="fill" />
       </View>
     ),
@@ -106,9 +108,8 @@ export function HomeScreen({ navigation }: Props) {
         barStyle={dark ? "light-content" : "dark-content"}
         backgroundColor={theme.background}
       />
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Text style={[styles.title, { color: theme.text }]}>Examples</Text>
-        <Text style={[styles.subtitle, { color: theme.muted }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 24 }]}>
+        <Text style={[styles.title, { color: theme.text }]}>
           react-native-dither-charts
         </Text>
       </View>
@@ -147,14 +148,32 @@ const SAKA_COLOR = "#EF0107";
 function OverlappedAvatars() {
   return (
     <View style={styles.stack}>
-      <Image
-        source={require("../assets/images/lamine.jpg")}
-        style={[styles.stackAvatar, styles.stackAvatarLeft, { borderColor: YAMAL_COLOR }]}
-      />
-      <Image
-        source={require("../assets/images/saka.png")}
-        style={[styles.stackAvatar, styles.stackAvatarRight, { borderColor: SAKA_COLOR }]}
-      />
+      <View
+        style={[
+          styles.stackAvatarFrame,
+          styles.stackAvatarLeft,
+          { borderColor: YAMAL_COLOR },
+        ]}
+      >
+        <Image
+          source={require("../assets/images/lamine.jpg")}
+          resizeMode="cover"
+          style={styles.stackAvatarImage}
+        />
+      </View>
+      <View
+        style={[
+          styles.stackAvatarFrame,
+          styles.stackAvatarRight,
+          { borderColor: SAKA_COLOR },
+        ]}
+      >
+        <Image
+          source={require("../assets/images/saka.png")}
+          resizeMode="cover"
+          style={styles.stackAvatarImage}
+        />
+      </View>
     </View>
   );
 }
@@ -162,7 +181,7 @@ function OverlappedAvatars() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   header: { paddingHorizontal: 20, paddingBottom: 20 },
-  title: { fontFamily: fonts.semibold, fontSize: 28, marginBottom: 4 },
+  title: { fontFamily: fonts.semibold, fontSize: 24, marginBottom: 4 },
   subtitle: { fontFamily: fonts.regular, fontSize: 13 },
   list: { paddingHorizontal: 20, paddingBottom: 32 },
   row: {
@@ -175,13 +194,19 @@ const styles = StyleSheet.create({
   icon: { borderRadius: 16, height: 32, width: 32 },
   iconTile: { alignItems: "center", justifyContent: "center" },
   stack: { height: 32, width: 32 },
-  stackAvatar: {
+  stackAvatarFrame: {
+    backgroundColor: "#F2F2F5",
     borderRadius: 10,
     borderWidth: 1.5,
     height: 20,
+    overflow: "hidden",
     position: "absolute",
     top: 6,
     width: 20,
+  },
+  stackAvatarImage: {
+    height: "100%",
+    width: "100%",
   },
   stackAvatarLeft: { left: 0 },
   stackAvatarRight: { left: 12 },

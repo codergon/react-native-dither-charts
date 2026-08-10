@@ -38,7 +38,15 @@ const PLAYER_B = {
 
 // Same shape/values as the radar chart in the chart gallery demo, relabeled for a
 // player comparison so the two graphs read as visually consistent.
-const CATEGORIES = ["Pace", "Shooting", "Passing", "Dribbling", "Defending", "Physical", "Vision"];
+const CATEGORIES = [
+  "Pace",
+  "Shooting",
+  "Passing",
+  "Dribbling",
+  "Defending",
+  "Physical",
+  "Vision",
+];
 const VALUES_A = [82, 94, 58, 76, 92, 64, 65];
 const VALUES_B = [54, 60, 71, 52, 87, 48, 98];
 
@@ -68,11 +76,7 @@ export function PlayerCompareScreen({ navigation }: Props) {
         barStyle={dark ? "light-content" : "dark-content"}
         backgroundColor={theme.background}
       />
-      <ScrollView
-        style={{ paddingTop: insets.top + 16 }}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <View style={[styles.scrollContent, { paddingTop: insets.top + 16 }]}>
         <View style={styles.vsHeader}>
           <PlayerColumn
             player={PLAYER_A}
@@ -113,8 +117,10 @@ export function PlayerCompareScreen({ navigation }: Props) {
                 color: PLAYER_B.color,
                 dither: {
                   variant: "hatched",
-                  gap: 4.4,
-                  strokeWidth: 0.9,
+                  cellSize: 1.8,
+                  gap: 8,
+                  strokeWidth: 4,
+                  pixelated: true,
                   opacity: 0.85,
                 },
               },
@@ -144,7 +150,7 @@ export function PlayerCompareScreen({ navigation }: Props) {
         </View>
 
         <View style={{ height: insets.bottom + 32 }} />
-      </ScrollView>
+      </View>
       <BackButton theme={theme} onPress={() => goBackOrHome(navigation)} />
     </View>
   );
@@ -166,15 +172,28 @@ function PlayerColumn({
   return (
     <View style={[styles.playerColumn, { opacity: dimmed ? 0.5 : 1 }]}>
       <Pressable onPress={onPress}>
-        <Image
-          source={player.photo}
-          style={[styles.avatar, { borderColor: active ? player.color : theme.faint }]}
-        />
+        <View
+          style={[
+            styles.avatarFrame,
+            { borderColor: active ? player.color : theme.faint },
+          ]}
+        >
+          <Image
+            source={player.photo}
+            resizeMode="cover"
+            style={styles.avatarImage}
+          />
+        </View>
       </Pressable>
-      <Text style={[styles.playerName, { color: theme.text }]} numberOfLines={1}>
+      <Text
+        style={[styles.playerName, { color: theme.text }]}
+        numberOfLines={1}
+      >
         {player.name}
       </Text>
-      <Text style={[styles.playerTeam, { color: theme.muted }]}>{player.team}</Text>
+      <Text style={[styles.playerTeam, { color: theme.muted }]}>
+        {player.team}
+      </Text>
     </View>
   );
 }
@@ -185,26 +204,48 @@ function renderCompareTooltip(
   focusedSeries: number | null,
 ) {
   const bubbleWidth = 136;
-  const left = Math.max(0, Math.min(info.x - bubbleWidth / 2, info.width - bubbleWidth));
-  const top = Math.max(
-    4,
-    Math.min((info.y ?? 0) - 66, Math.max((info.height ?? 66) - 62, 4)),
+  const left = Math.max(
+    0,
+    Math.min(info.x - bubbleWidth / 2, info.width - bubbleWidth),
   );
+  const top =
+    Math.max(
+      4,
+      Math.min((info.y ?? 0) - 66, Math.max((info.height ?? 66) - 62, 4)),
+    ) - 40;
 
   return (
     <View
       pointerEvents="none"
       style={[
         styles.tooltip,
-        { left, top, width: bubbleWidth, backgroundColor: theme.surface, borderColor: theme.border },
+        {
+          left,
+          top,
+          width: bubbleWidth,
+          backgroundColor: theme.background,
+          borderColor: theme.border,
+        },
       ]}
     >
-      <Text style={[styles.tooltipLabel, { color: theme.muted }]}>{info.datum.label}</Text>
+      <Text style={[styles.tooltipLabel, { color: theme.muted }]}>
+        {info.datum.label}
+      </Text>
       {focusedSeries == null || focusedSeries === 0 ? (
-        <TooltipRow color={PLAYER_A.color} name="Yamal" value={info.values?.[0] ?? 0} theme={theme} />
+        <TooltipRow
+          color={PLAYER_A.color}
+          name="Yamal"
+          value={info.values?.[0] ?? 0}
+          theme={theme}
+        />
       ) : null}
       {focusedSeries == null || focusedSeries === 1 ? (
-        <TooltipRow color={PLAYER_B.color} name="Saka" value={info.values?.[1] ?? 0} theme={theme} />
+        <TooltipRow
+          color={PLAYER_B.color}
+          name="Saka"
+          value={info.values?.[1] ?? 0}
+          theme={theme}
+        />
       ) : null}
     </View>
   );
@@ -241,12 +282,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   playerColumn: { alignItems: "center", flex: 1, gap: 6 },
-  avatar: {
+  avatarFrame: {
+    backgroundColor: "#F2F2F5",
     borderRadius: 36,
     borderWidth: 2,
     height: 72,
     marginBottom: 6,
+    overflow: "hidden",
     width: 72,
+  },
+  avatarImage: {
+    height: "100%",
+    width: "100%",
   },
   playerName: { fontFamily: fonts.semibold, fontSize: 14, textAlign: "center" },
   playerTeam: { fontFamily: fonts.regular, fontSize: 11.5 },

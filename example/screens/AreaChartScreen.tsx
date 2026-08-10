@@ -54,8 +54,10 @@ const chartData: StackedChartDatum[] = MONTHS.map((label, index) => ({
       color: KENDRICK.color,
       dither: {
         variant: "hatched",
-        gap: 4.2,
-        strokeWidth: 1,
+        cellSize: 2,
+        gap: 8,
+        strokeWidth: 4,
+        pixelated: true,
         opacity: 0.9,
       },
     },

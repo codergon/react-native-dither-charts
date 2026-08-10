@@ -37,8 +37,6 @@ import type { RootStackParamList } from "../navigation/RootNavigator";
 import { goBackOrHome } from "../navigation/goBackOrHome";
 import { BackButton } from "../components/BackButton";
 
-const BASE_COLOR = "#4441ff";
-
 const screenWidth = Dimensions.get("window").width;
 const HORIZONTAL_PADDING = 20;
 const CHART_HEIGHT = 260;
@@ -144,26 +142,26 @@ export function TickerScreen({ navigation }: Props) {
             height={CHART_HEIGHT}
             minValue={minValue}
             maxValue={maxValue}
-            color={BASE_COLOR}
+            color={theme.primary}
             futureColor={theme.faint}
             strokeWidth={2}
             curve="smooth"
             // bandWidth={16}
             showArea={!false}
-            fillColor={BASE_COLOR}
+            fillColor={theme.primary}
             fillOpacity={1}
             dither={{
               variant: "gradient",
-              cellSize: 2.6,
+              cellSize: 2.4,
               startDensity: 0.1,
               endDensity: 0.8,
-              solidFrom: 0.96,
-              gradientColors: [BASE_COLOR, theme.background],
+              solidFrom: 0.9,
+              gradientColors: [theme.primary, theme.background],
             }}
             scrub={{
               showLine: true,
               showDot: true,
-              dotColor: BASE_COLOR,
+              dotColor: theme.primary,
               dotRadius: 5,
               haloRadius: 0,
               haloOpacity: 0,

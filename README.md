@@ -57,6 +57,13 @@ export function Demo() {
 }
 ```
 
+For striped fills, use `variant: "hatched"`. Add `pixelated: true` when you want stepped square-pixel
+stripes instead of smooth diagonal strokes:
+
+```tsx
+dither={{ variant: "hatched", pixelated: true, cellSize: 2, gap: 8, strokeWidth: 4 }}
+```
+
 ## Axes
 
 Every chart can render its own axis labels — off by default, so existing usage is unaffected.
@@ -149,15 +156,15 @@ disable the behavior.
 `DitherMultiLineChart` deliberately keeps every line visible: comparison is its primary job. Each series can
 still provide its own `dither`, while omitted series styles inherit the chart-level ordered dither.
 
-Pie and donut charts use a different selection model. Tapping a slice expands it without muting the rest:
+Pie and donut charts use a different selection model. Tapping a slice adds a small outer protrusion without changing the slice texture or muting the rest:
 
 ```tsx
 <DitherDonutChart
   data={browserShare}
   width={320}
   height={320}
-  activeScale={1.055}
-  baseOpacity={0.16}
+  activeScale={1.025}
+  baseOpacity={0.12}
   tooltip={{ position: "point" }}
   onSliceFocus={setActiveSlice}
 />

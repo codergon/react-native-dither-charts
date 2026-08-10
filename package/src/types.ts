@@ -52,6 +52,8 @@ export type DitherOptions = {
   opacity?: number;
   jitter?: number;
   strokeWidth?: number;
+  /** Draw hatched/crosshatch lines as stepped square pixels instead of smooth strokes. */
+  pixelated?: boolean;
   color?: string;
 };
 
@@ -256,14 +258,12 @@ export type PieChartProps = {
   gapAngle?: number;
   colors?: string[];
   dither?: DitherOptions;
-  /** Pale color beneath the dither keeps the inner edge readable. Defaults to 0.16. */
+  /** Pale color beneath the dither keeps the inner edge readable. Defaults to 0.12. */
   baseOpacity?: number;
   focusedIndex?: number | null;
-  /** Outer-radius expansion applied to a selected slice. Defaults to 1.025. */
+  /** Outward protrusion applied to a selected slice. Defaults to 1.025. */
   activeScale?: number;
-  /** Dither progress where the focused slice begins its denser active transition. Defaults to 0.9. */
-  activeSolidFrom?: number;
-  /** Focus transition duration in milliseconds. Defaults to 180. */
+  /** Focus transition duration in milliseconds. Defaults to 160. */
   focusAnimationDuration?: number;
   focusOnPress?: boolean;
   tooltip?: TooltipProp;

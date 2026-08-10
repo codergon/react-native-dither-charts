@@ -65,8 +65,10 @@ const areaData = months.map((label, index) => ({
       color: PURPLE,
       dither: {
         variant: "hatched" as const,
-        gap: 4.2,
-        strokeWidth: 1,
+        cellSize: 2,
+        gap: 8,
+        strokeWidth: 4,
+        pixelated: true,
         opacity: 0.92,
       },
     },
@@ -93,8 +95,10 @@ const barData = months.map((label, index) => ({
       color: PURPLE,
       dither: {
         variant: "hatched" as const,
-        gap: 4.2,
-        strokeWidth: 1,
+        cellSize: 2,
+        gap: 8,
+        strokeWidth: 4,
+        pixelated: true,
         opacity: 0.92,
       },
     },
@@ -165,8 +169,10 @@ const radarSeries = [
     color: RED,
     dither: {
       variant: "hatched" as const,
-      gap: 4.8,
-      strokeWidth: 0.9,
+      cellSize: 2,
+      gap: 8,
+      strokeWidth: 4,
+      pixelated: true,
       opacity: 0.8,
     },
   },
@@ -464,7 +470,6 @@ const PieTooltipSection = React.memo(function PieTooltipSection({
           data={pieData}
           width={chartWidth}
           height={chartWidth}
-          gapAngle={0.45}
           focusedIndex={focusedIndex}
           onSliceFocus={setFocusedIndex}
           tooltip={{
@@ -550,7 +555,6 @@ const PieReadoutSection = React.memo(function PieReadoutSection({
           data={pieData}
           width={chartWidth}
           height={chartWidth}
-          gapAngle={0.45}
           focusedIndex={focusedIndex}
           onSliceFocus={setFocusedIndex}
           onScrub={handleScrub}

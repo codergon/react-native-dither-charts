@@ -66,7 +66,6 @@ export function PieChartScreen({ navigation }: Props) {
             data={STREAMING_SHARE}
             width={CHART_SIZE}
             height={CHART_SIZE}
-            gapAngle={0.45}
             tooltip={{
               position: "point",
               backgroundColor: theme.surface,

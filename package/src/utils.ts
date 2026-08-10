@@ -28,6 +28,7 @@ export const resolveDither = (dither?: DitherOptions) => ({
   opacity: dither?.opacity ?? 1,
   jitter: dither?.jitter ?? 0,
   strokeWidth: dither?.strokeWidth ?? 2,
+  pixelated: dither?.pixelated ?? false,
   color: dither?.color
 });
 

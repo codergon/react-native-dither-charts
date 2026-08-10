@@ -1,4 +1,5 @@
 export type Theme = {
+  primary: string;
   background: string;
   surface: string;
   text: string;
@@ -20,6 +21,7 @@ export const RED = "#FF3B30";
 
 export function createTheme(dark: boolean): Theme {
   return {
+    primary: dark ? "#9ffff2" : "#4441ff",
     background: dark ? "#131313" : "#FFFFFF",
     surface: dark ? "#1C1C1F" : "#F7F7F8",
     text: dark ? "#F5F5F4" : "#111114",
