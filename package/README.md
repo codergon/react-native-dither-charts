@@ -4,7 +4,7 @@ Dithered charts for React Native.
 
 Line, area, bar, pie, donut, and radar charts rendered with Skia. Built for mobile screens that need texture, fast touch feedback, and clear data states without a heavy charting setup.
 
-<img width="1920" height="1080" alt="rn-dither-charts" src="https://github.com/user-attachments/assets/2ec370d6-34db-475f-adfb-a1da76d41f54" />
+<img width="960" height="540" alt="rn-dither-charts" src="https://raw.githubusercontent.com/codergon/react-native-dither-charts/main/docs/rn-dither-charts.gif" />
 
 ## Components
 

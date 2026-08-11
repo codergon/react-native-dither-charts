@@ -1,7 +1,15 @@
 {
   "name": "react-native-dither-charts",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Dithered charts for React Native.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/codergon/react-native-dither-charts.git"
+  },
+  "homepage": "https://github.com/codergon/react-native-dither-charts#readme",
+  "bugs": {
+    "url": "https://github.com/codergon/react-native-dither-charts/issues"
+  },
   "main": "dist/index.js",
   "react-native": "src/index.ts",
   "types": "dist/index.d.ts",
