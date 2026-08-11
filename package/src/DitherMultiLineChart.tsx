@@ -10,6 +10,14 @@ import { clamp, generateYTicks, nearestIndexFromX } from "./utils";
 import { useScrub } from "./useScrub";
 import type { MultiLineChartProps } from "./types";
 
+type MultiLinePathEntry = {
+  points: Array<{ x: number; y: number }>;
+  bandPath: ReturnType<typeof Skia.Path.Make>;
+  upperPath: ReturnType<typeof Skia.Path.Make>;
+  lowerPath: ReturnType<typeof Skia.Path.Make>;
+  densityProgress: (x: number, y: number) => number;
+};
+
 export function DitherMultiLineChart({
   labels,
   series,
@@ -36,16 +44,26 @@ export function DitherMultiLineChart({
   const xAxisHeight = xAxisConfig ? xAxisConfig.size ?? 20 : 0;
   const plotWidth = Math.max(width - yAxisWidth, 0);
   const plotHeight = Math.max(height - xAxisHeight, 0);
-  const resolvedMax = maxValue ?? Math.max(...series.flatMap((entry) => entry.values), 1);
-  const pointCount = Math.max(labels.length, ...series.map((entry) => entry.values.length), 0);
+  const resolvedMax = useMemo(
+    () => maxValue ?? Math.max(...series.flatMap((entry) => entry.values), 1),
+    [maxValue, series]
+  );
+  const pointCount = useMemo(
+    () => Math.max(labels.length, ...series.map((entry) => entry.values.length), 0),
+    [labels.length, series]
+  );
   const step = pointCount > 1 ? plotWidth / (pointCount - 1) : plotWidth;
-  const defaultDither = dither ?? {
-    variant: "gradient" as const,
-    cellSize: 1.25,
-    startDensity: 0.18,
-    endDensity: 1,
-    solidFrom: 0.94
-  };
+  const defaultDither = useMemo(
+    () =>
+      dither ?? {
+        variant: "gradient" as const,
+        cellSize: 1.25,
+        startDensity: 0.18,
+        endDensity: 1,
+        solidFrom: 0.94
+      },
+    [dither]
+  );
 
   const paths = useMemo(
     () =>
@@ -81,31 +99,6 @@ export function DitherMultiLineChart({
 
   const scrubConfig = typeof scrub === "object" ? scrub : undefined;
   const scrubEnabled = Boolean(onScrub) || Boolean(tooltip) || Boolean(scrub);
-  // No snapPoint here on purpose: snapping the guide itself to the nearest data index
-  // made it visibly lag behind the finger between two widely-spaced points (the more
-  // sparse the data, the bigger that dead zone). The guide now tracks the raw touch
-  // position continuously — see the render below — while the tooltip/onScrub value
-  // still snaps to the nearest actual data point, since there's nothing to show
-  // in between two months.
-  const { scrubX, handlers } = useScrub(plotWidth, scrubEnabled, undefined, undefined);
-  const scrubIndex = scrubX == null || pointCount === 0 ? null : nearestIndexFromX(scrubX, step, pointCount);
-
-  useEffect(() => {
-    if (!onScrub) return;
-    if (scrubIndex == null) {
-      onScrub(null);
-      return;
-    }
-    const values = series.map((entry) => entry.values[scrubIndex] ?? 0);
-    onScrub({
-      index: scrubIndex,
-      datum: { label: labels[scrubIndex] ?? String(scrubIndex), values },
-      value: values[0] ?? 0,
-      values,
-      x: scrubIndex * step
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scrubIndex]);
 
   const yTicks = yAxisConfig ? generateYTicks(resolvedMax, yAxisConfig.ticks ?? 4, yAxisConfig.formatLabel) : [];
   const xLabels = xAxisConfig
@@ -118,7 +111,7 @@ export function DitherMultiLineChart({
         {yAxisConfig ? (
           <YAxisLabels ticks={yTicks} width={yAxisWidth} height={plotHeight} config={yAxisConfig} />
         ) : null}
-        <View style={{ width: plotWidth, height: plotHeight }} {...(handlers ?? {})}>
+        <View style={{ width: plotWidth, height: plotHeight }}>
           {/*
             The dithered bands and a live scrub dot are split into separate Canvases
             on purpose. A Skia Canvas re-rasterizes its *entire* content whenever
@@ -159,41 +152,21 @@ export function DitherMultiLineChart({
               );
             })}
           </Canvas>
-          {scrubX != null ? (
-            <Canvas
-              style={{ position: "absolute", left: 0, top: 0, width: plotWidth, height: plotHeight }}
-              pointerEvents="none"
-            >
-              <ScrubGuide
-                x={scrubX}
-                height={plotHeight}
-                color={colors[0]}
-                dots={paths.map((entry, seriesIndex) => ({
-                  y: curveYAtX(entry.points, scrubX, curve),
-                  color: series[seriesIndex].color ?? colors[seriesIndex % colors.length]
-                }))}
-                config={scrubConfig}
-              />
-            </Canvas>
-          ) : null}
-          {scrubIndex != null && scrubX != null ? (
-            <TooltipLayer
-              tooltip={tooltip}
-              info={{
-                index: scrubIndex,
-                datum: {
-                  label: labels[scrubIndex] ?? String(scrubIndex),
-                  values: series.map((entry) => entry.values[scrubIndex] ?? 0)
-                },
-                value: series[0]?.values[scrubIndex] ?? 0,
-                values: series.map((entry) => entry.values[scrubIndex] ?? 0),
-                x: scrubX,
-                y: curveYAtX(paths[0]?.points ?? [], scrubX, curve),
-                width: plotWidth,
-                height: plotHeight
-              }}
-            />
-          ) : null}
+          <MultiLineScrubOverlay
+            enabled={scrubEnabled}
+            width={plotWidth}
+            height={plotHeight}
+            paths={paths}
+            labels={labels}
+            series={series}
+            step={step}
+            pointCount={pointCount}
+            colors={colors}
+            curve={curve}
+            scrubConfig={scrubConfig}
+            tooltip={tooltip}
+            onScrub={onScrub}
+          />
         </View>
       </View>
       {xAxisConfig ? (
@@ -203,3 +176,96 @@ export function DitherMultiLineChart({
   );
 }
 
+const MultiLineScrubOverlay = React.memo(function MultiLineScrubOverlay({
+  enabled,
+  width,
+  height,
+  paths,
+  labels,
+  series,
+  step,
+  pointCount,
+  colors,
+  curve,
+  scrubConfig,
+  tooltip,
+  onScrub
+}: {
+  enabled: boolean;
+  width: number;
+  height: number;
+  paths: MultiLinePathEntry[];
+  labels: string[];
+  series: MultiLineChartProps["series"];
+  step: number;
+  pointCount: number;
+  colors: string[];
+  curve: "linear" | "smooth";
+  scrubConfig: Exclude<MultiLineChartProps["scrub"], boolean> | undefined;
+  tooltip: MultiLineChartProps["tooltip"];
+  onScrub: MultiLineChartProps["onScrub"];
+}) {
+  // No snapPoint here on purpose: snapping the guide itself to the nearest data index
+  // made it visibly lag behind the finger between two widely-spaced points. The guide
+  // tracks raw touch x; the tooltip/onScrub value still snaps to an actual datum.
+  const { scrubX, handlers } = useScrub(width, enabled, undefined, undefined);
+  const scrubIndex = scrubX == null || pointCount === 0 ? null : nearestIndexFromX(scrubX, step, pointCount);
+
+  useEffect(() => {
+    if (!onScrub) return;
+    if (scrubIndex == null) {
+      onScrub(null);
+      return;
+    }
+    const values = series.map((entry) => entry.values[scrubIndex] ?? 0);
+    onScrub({
+      index: scrubIndex,
+      datum: { label: labels[scrubIndex] ?? String(scrubIndex), values },
+      value: values[0] ?? 0,
+      values,
+      x: scrubIndex * step
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrubIndex]);
+
+  return (
+    <View
+      pointerEvents={enabled ? "auto" : "none"}
+      style={{ position: "absolute", left: 0, top: 0, width, height }}
+      {...(handlers ?? {})}
+    >
+      {scrubX != null ? (
+        <Canvas style={{ width, height }} pointerEvents="none">
+          <ScrubGuide
+            x={scrubX}
+            height={height}
+            color={colors[0]}
+            dots={paths.map((entry, seriesIndex) => ({
+              y: curveYAtX(entry.points, scrubX, curve),
+              color: series[seriesIndex].color ?? colors[seriesIndex % colors.length]
+            }))}
+            config={scrubConfig}
+          />
+        </Canvas>
+      ) : null}
+      {scrubIndex != null && scrubX != null ? (
+        <TooltipLayer
+          tooltip={tooltip}
+          info={{
+            index: scrubIndex,
+            datum: {
+              label: labels[scrubIndex] ?? String(scrubIndex),
+              values: series.map((entry) => entry.values[scrubIndex] ?? 0)
+            },
+            value: series[0]?.values[scrubIndex] ?? 0,
+            values: series.map((entry) => entry.values[scrubIndex] ?? 0),
+            x: scrubX,
+            y: curveYAtX(paths[0]?.points ?? [], scrubX, curve),
+            width,
+            height
+          }}
+        />
+      ) : null}
+    </View>
+  );
+});

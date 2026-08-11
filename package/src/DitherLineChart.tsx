@@ -43,9 +43,12 @@ export function DitherLineChart({
   const scrubConfig = typeof scrub === "object" ? scrub : undefined;
   const scrubEnabled = Boolean(onScrub) || Boolean(tooltip) || Boolean(scrub);
 
-  const maxValue = maxValueProp ?? Math.max(...data.map((item) => item.value), 1);
+  const maxValue = useMemo(
+    () => maxValueProp ?? Math.max(...data.map((item) => item.value), 1),
+    [data, maxValueProp]
+  );
   const minValue = minValueProp ?? 0;
-  const valueRange = Math.max(maxValue - minValue, 0.0001);
+  const valueRange = useMemo(() => Math.max(maxValue - minValue, 0.0001), [maxValue, minValue]);
   const step = data.length > 1 ? plotWidth / (data.length - 1) : plotWidth;
 
   const points = useMemo(
@@ -256,4 +259,3 @@ export function DitherLineChart({
     </View>
   );
 }
-

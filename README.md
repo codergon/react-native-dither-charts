@@ -1,8 +1,10 @@
 # react-native-dither-charts
 
-Dithered chart primitives for React Native Skia.
+Dithered charts for React Native.
 
-This is intentionally focused: it is not trying to replace every charting library. The goal is to give common mobile data views the dithered rendering, touch feedback, and composable controls that make them feel considered.
+Line, area, bar, pie, donut, and radar charts rendered with Skia. Built for mobile screens that need texture, fast touch feedback, and clear data states without a heavy charting setup.
+
+<img width="1920" height="1080" alt="rn-dither-charts" src="https://github.com/user-attachments/assets/2ec370d6-34db-475f-adfb-a1da76d41f54" />
 
 ## Components
 

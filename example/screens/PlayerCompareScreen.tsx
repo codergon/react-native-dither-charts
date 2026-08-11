@@ -58,6 +58,36 @@ export function PlayerCompareScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const chartSize = useMemo(() => 320, []);
   const [focusedSeries, setFocusedSeries] = useState<number | null>(null);
+  const radarSeries = useMemo(
+    () => [
+      {
+        label: PLAYER_A.name,
+        values: VALUES_A,
+        color: PLAYER_A.color,
+        dither: {
+          variant: "gradient" as const,
+          cellSize: 1.4,
+          startDensity: 0.25,
+          endDensity: 1,
+          solidFrom: 0.95,
+        },
+      },
+      {
+        label: PLAYER_B.name,
+        values: VALUES_B,
+        color: PLAYER_B.color,
+        dither: {
+          variant: "hatched" as const,
+          cellSize: 1.8,
+          gap: 8,
+          strokeWidth: 4,
+          pixelated: true,
+          opacity: 0.85,
+        },
+      },
+    ],
+    [],
+  );
 
   const toggleFocus = useCallback((index: number) => {
     setFocusedSeries((current) => (current === index ? null : index));
@@ -98,33 +128,7 @@ export function PlayerCompareScreen({ navigation }: Props) {
         <View style={styles.centeredChart}>
           <DitherRadarChart
             categories={CATEGORIES}
-            series={[
-              {
-                label: PLAYER_A.name,
-                values: VALUES_A,
-                color: PLAYER_A.color,
-                dither: {
-                  variant: "gradient",
-                  cellSize: 1.4,
-                  startDensity: 0.25,
-                  endDensity: 1,
-                  solidFrom: 0.95,
-                },
-              },
-              {
-                label: PLAYER_B.name,
-                values: VALUES_B,
-                color: PLAYER_B.color,
-                dither: {
-                  variant: "hatched",
-                  cellSize: 1.8,
-                  gap: 8,
-                  strokeWidth: 4,
-                  pixelated: true,
-                  opacity: 0.85,
-                },
-              },
-            ]}
+            series={radarSeries}
             width={chartSize}
             height={chartSize}
             maxValue={100}

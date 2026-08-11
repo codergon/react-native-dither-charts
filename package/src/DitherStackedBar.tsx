@@ -41,12 +41,42 @@ export function DitherStackedBar({
   const plotWidth = Math.max(width - yAxisWidth, 0);
   const plotHeight = Math.max(height - xAxisHeight, 0);
 
-  const totals = data.map((item) => sum(item.segments.map((segment) => segment.value)));
-  const resolvedMax = maxValue ?? Math.max(...totals, 1);
+  const totals = useMemo(
+    () => data.map((item) => sum(item.segments.map((segment) => segment.value))),
+    [data]
+  );
+  const resolvedMax = useMemo(
+    () => maxValue ?? Math.max(...totals, 1),
+    [maxValue, totals]
+  );
   const barWidth = data.length > 0 ? (plotWidth - spacing * (data.length - 1)) / data.length : 0;
   const centers = useMemo(
     () => data.map((_, index) => index * (barWidth + spacing) + barWidth / 2),
     [data, barWidth, spacing]
+  );
+  const defaultFocusedDither = useMemo(
+    () => ({
+      ...resolveDither(dither),
+      solidFrom: activeSolidFrom
+    }),
+    [
+      activeSolidFrom,
+      dither?.cellSize,
+      dither?.color,
+      dither?.direction,
+      dither?.dotSize,
+      dither?.endDensity,
+      dither?.gap,
+      dither?.gradientColors,
+      dither?.jitter,
+      dither?.opacity,
+      dither?.pattern,
+      dither?.pixelated,
+      dither?.solidFrom,
+      dither?.startDensity,
+      dither?.strokeWidth,
+      dither?.variant
+    ]
   );
 
   const [internalFocusedIndex, setInternalFocusedIndex] = useState<number | null>(null);
@@ -178,10 +208,12 @@ export function DitherStackedBar({
                       cursorY + segmentHeight + (segmentIndex < item.segments.length - 1 ? seamOverlap : 0)
                     );
                     const drawHeight = Math.max(drawBottom - drawY, 0);
-                    const focusedDither = {
-                      ...resolveDither(segmentDither),
-                      solidFrom: activeSolidFrom
-                    };
+                    const focusedDither = segment.dither
+                      ? {
+                          ...resolveDither(segment.dither),
+                          solidFrom: activeSolidFrom
+                        }
+                      : defaultFocusedDither;
 
                     return (
                       <React.Fragment key={`${item.label ?? "stack"}-${itemIndex}-${segmentIndex}`}>

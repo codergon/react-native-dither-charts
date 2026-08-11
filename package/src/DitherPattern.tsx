@@ -27,6 +27,17 @@ const BAYER_8 = [
   [63, 31, 55, 23, 61, 29, 53, 21]
 ] as const;
 
+const MAX_PATTERN_PATH_CACHE_ENTRIES = 160;
+const patternPathCache = new Map<
+  string,
+  {
+    primary: ReturnType<typeof Skia.Path.Make>;
+    secondary: ReturnType<typeof Skia.Path.Make>;
+  }
+>();
+const densityProgressIds = new WeakMap<(x: number, y: number) => number, number>();
+let nextDensityProgressId = 1;
+
 function DitherPatternComponent({
   x,
   y,
@@ -72,16 +83,22 @@ function DitherPatternComponent({
   );
 
   const paths = useMemo(() => {
+    const cacheKey = hydrated
+      ? patternPathCacheKey(x, y, width, height, options, densityProgress)
+      : null;
+    const cached = cacheKey ? patternPathCache.get(cacheKey) : undefined;
+    if (cached) return cached;
+
     const primary = Skia.Path.Make();
     const secondary = Skia.Path.Make();
 
     if (width <= 0 || height <= 0) {
-      return { primary, secondary };
+      return cachePatternPaths(cacheKey, { primary, secondary });
     }
 
     if (options.variant === "solid") {
       primary.addRect(rect(x, y, width, height));
-      return { primary, secondary };
+      return cachePatternPaths(cacheKey, { primary, secondary });
     }
 
     if (!hydrated) {
@@ -124,7 +141,7 @@ function DitherPatternComponent({
         }
       }
 
-      return { primary, secondary };
+      return cachePatternPaths(cacheKey, { primary, secondary });
     }
 
     if (options.variant === "dotted") {
@@ -137,7 +154,7 @@ function DitherPatternComponent({
         }
       }
 
-      return { primary, secondary };
+      return cachePatternPaths(cacheKey, { primary, secondary });
     }
 
     if (options.pixelated) {
@@ -145,7 +162,7 @@ function DitherPatternComponent({
       if (options.variant === "crosshatch") {
         addPixelHatch(secondary, x, y, width, height, options.cellSize, options.gap, options.strokeWidth, 1);
       }
-      return { primary, secondary };
+      return cachePatternPaths(cacheKey, { primary, secondary });
     }
 
     for (let lineX = x - height; lineX < x + width; lineX += options.gap) {
@@ -160,7 +177,7 @@ function DitherPatternComponent({
       }
     }
 
-    return { primary, secondary };
+    return cachePatternPaths(cacheKey, { primary, secondary });
   }, [densityProgress, height, hydrated, options, width, x, y]);
 
   const marks = (
@@ -215,6 +232,62 @@ function DitherPatternComponent({
     : rect(x, y, width, height);
 
   return <Group clip={clipShape}>{marks}</Group>;
+}
+
+function cachePatternPaths(
+  cacheKey: string | null,
+  paths: {
+    primary: ReturnType<typeof Skia.Path.Make>;
+    secondary: ReturnType<typeof Skia.Path.Make>;
+  }
+) {
+  if (!cacheKey) return paths;
+  if (patternPathCache.size >= MAX_PATTERN_PATH_CACHE_ENTRIES) {
+    const oldestKey = patternPathCache.keys().next().value;
+    if (oldestKey) patternPathCache.delete(oldestKey);
+  }
+  patternPathCache.set(cacheKey, paths);
+  return paths;
+}
+
+function patternPathCacheKey(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  options: ReturnType<typeof resolveDither>,
+  densityProgress?: (x: number, y: number) => number
+) {
+  return [
+    x,
+    y,
+    width,
+    height,
+    options.variant,
+    options.cellSize,
+    options.startDensity,
+    options.endDensity,
+    options.solidFrom,
+    options.gradientColors?.[0] ?? "",
+    options.gradientColors?.[1] ?? "",
+    options.direction,
+    options.dotSize,
+    options.gap,
+    options.jitter,
+    options.strokeWidth,
+    options.pixelated ? 1 : 0,
+    getDensityProgressId(densityProgress)
+  ].join(":");
+}
+
+function getDensityProgressId(densityProgress?: (x: number, y: number) => number) {
+  if (!densityProgress) return 0;
+  const cached = densityProgressIds.get(densityProgress);
+  if (cached) return cached;
+  const next = nextDensityProgressId;
+  nextDensityProgressId += 1;
+  densityProgressIds.set(densityProgress, next);
+  return next;
 }
 
 function addPixelHatch(

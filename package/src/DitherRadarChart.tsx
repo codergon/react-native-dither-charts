@@ -32,9 +32,14 @@ export function DitherRadarChart({
 }: RadarChartProps) {
   const centerX = width / 2;
   const centerY = height / 2;
+  const categoryCount = categories.length;
+  const seriesValueKey = series.map((entry) => entry.values.join(",")).join("|");
   const radius = Math.max(Math.min(width, height) / 2 - 34, 0);
-  const resolvedMax = maxValue ?? Math.max(...series.flatMap((entry) => entry.values), 1);
-  const angleStep = categories.length > 0 ? (Math.PI * 2) / categories.length : 0;
+  const resolvedMax = useMemo(
+    () => maxValue ?? Math.max(...series.flatMap((entry) => entry.values), 1),
+    [maxValue, seriesValueKey]
+  );
+  const angleStep = categoryCount > 0 ? (Math.PI * 2) / categoryCount : 0;
   const startAngle = -Math.PI / 2;
 
   const gridPaths = useMemo(
@@ -42,26 +47,28 @@ export function DitherRadarChart({
       Array.from({ length: Math.max(levels, 1) }, (_, levelIndex) => {
         const levelRadius = (radius * (levelIndex + 1)) / Math.max(levels, 1);
         return polygonPath(
-          categories.map((_, index) => polarPoint(centerX, centerY, levelRadius, startAngle + angleStep * index))
+          Array.from({ length: categoryCount }, (_, index) =>
+            polarPoint(centerX, centerY, levelRadius, startAngle + angleStep * index)
+          )
         );
       }),
-    [angleStep, categories, centerX, centerY, levels, radius]
+    [angleStep, categoryCount, centerX, centerY, levels, radius]
   );
 
   const axisPath = useMemo(() => {
     const builder = Skia.Path.Make();
-    categories.forEach((_, index) => {
+    Array.from({ length: categoryCount }, (_, index) => {
       const point = polarPoint(centerX, centerY, radius, startAngle + angleStep * index);
       builder.moveTo(centerX, centerY);
       builder.lineTo(point.x, point.y);
     });
     return builder;
-  }, [angleStep, categories, centerX, centerY, radius]);
+  }, [angleStep, categoryCount, centerX, centerY, radius]);
 
   const seriesPaths = useMemo(
     () =>
       series.map((entry) => {
-        const radii = categories.map((_, index) =>
+        const radii = Array.from({ length: categoryCount }, (_, index) =>
           clamp((entry.values[index] ?? 0) / resolvedMax, 0, 1) * radius
         );
         const points = radii.map((entryRadius, index) =>
@@ -80,7 +87,7 @@ export function DitherRadarChart({
           }
         };
       }),
-    [angleStep, categories, centerX, centerY, radius, resolvedMax, series]
+    [angleStep, categoryCount, centerX, centerY, radius, resolvedMax, seriesValueKey]
   );
 
   const [internalFocusedSeries, setInternalFocusedSeries] = useState<number | null>(null);
@@ -118,16 +125,16 @@ export function DitherRadarChart({
   const scrubEnabled = Boolean(scrub) || Boolean(tooltip) || Boolean(onScrub) || focusOnPress;
   const snapPoint = useCallback(
     (point: { x: number; y: number }) => {
-      if (categories.length === 0) return point;
+      if (categoryCount === 0) return point;
       const index = nearestCategoryIndex(
         Math.atan2(point.y - centerY, point.x - centerX),
         startAngle,
         angleStep,
-        categories.length
+        categoryCount
       );
       return polarPoint(centerX, centerY, radius, startAngle + angleStep * index);
     },
-    [angleStep, categories.length, centerX, centerY, radius, startAngle]
+    [angleStep, categoryCount, centerX, centerY, radius, startAngle]
   );
   const { scrubX, scrubY, handlers } = useScrub(
     width,
@@ -138,28 +145,28 @@ export function DitherRadarChart({
   );
 
   const rawScrubIndex =
-    scrubX == null || scrubY == null || categories.length === 0
+    scrubX == null || scrubY == null || categoryCount === 0
       ? null
       : nearestCategoryIndex(
           Math.atan2(scrubY - centerY, scrubX - centerX),
           startAngle,
           angleStep,
-          categories.length
+          categoryCount
         );
   // The active axis always shows something: it defaults to the first category and
   // then sticks to whichever one was last touched, instead of disappearing when the
   // finger lifts or a tap misses.
-  const [activeIndex, setActiveIndex] = useState(categories.length > 0 ? 0 : null);
+  const [activeIndex, setActiveIndex] = useState(categoryCount > 0 ? 0 : null);
   useEffect(() => {
     if (rawScrubIndex != null) setActiveIndex(rawScrubIndex);
   }, [rawScrubIndex]);
   useEffect(() => {
     setActiveIndex((current) => {
-      if (categories.length === 0) return null;
-      if (current != null && current < categories.length) return current;
+      if (categoryCount === 0) return null;
+      if (current != null && current < categoryCount) return current;
       return 0;
     });
-  }, [categories.length]);
+  }, [categoryCount]);
   const scrubIndex = activeIndex;
   const scrubPoint =
     scrubIndex == null

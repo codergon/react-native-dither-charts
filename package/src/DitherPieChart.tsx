@@ -269,11 +269,21 @@ function PieSliceFocusMorph({
   active,
   activeProtrusion,
   duration,
+  start,
+  end,
+  centerX,
+  centerY,
   ...sliceProps
 }: PieSliceFocusMorphProps) {
   const progress = useSharedValue(active ? 1 : 0);
-  const restingOpacity = useDerivedValue(() => 1 - progress.value);
-  const activeOpacity = useDerivedValue(() => progress.value);
+  const middle = (start + end) / 2;
+  const angle = (middle * Math.PI) / 180;
+  const translateX = Math.cos(angle) * activeProtrusion;
+  const translateY = Math.sin(angle) * activeProtrusion;
+  const transform = useDerivedValue(() => [
+    { translateX: translateX * progress.value },
+    { translateY: translateY * progress.value }
+  ]);
 
   useLayoutEffect(() => {
     progress.value = withTiming(active ? 1 : 0, {
@@ -283,22 +293,26 @@ function PieSliceFocusMorph({
   }, [active, duration, progress]);
 
   if (activeProtrusion <= 0) {
-    return <PixelDonutSlice {...sliceProps} />;
+    return (
+      <PixelDonutSlice
+        {...sliceProps}
+        start={start}
+        end={end}
+        centerX={centerX}
+        centerY={centerY}
+      />
+    );
   }
 
   return (
-    <Group>
-      <Group opacity={restingOpacity}>
-        <PixelDonutSlice {...sliceProps} />
-      </Group>
-      <Group opacity={activeOpacity}>
-        <PixelDonutSlice
-          {...sliceProps}
-          outerRadius={sliceProps.outerRadius + activeProtrusion}
-          densityInnerRadius={sliceProps.innerRadius}
-          densityOuterRadius={sliceProps.outerRadius}
-        />
-      </Group>
+    <Group transform={transform}>
+      <PixelDonutSlice
+        {...sliceProps}
+        start={start}
+        end={end}
+        centerX={centerX}
+        centerY={centerY}
+      />
     </Group>
   );
 }

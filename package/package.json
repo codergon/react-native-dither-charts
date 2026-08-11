@@ -1,7 +1,7 @@
 {
   "name": "react-native-dither-charts",
   "version": "0.0.1",
-  "description": "Dithered chart primitives for React Native Skia.",
+  "description": "Dithered charts for React Native.",
   "main": "dist/index.js",
   "react-native": "src/index.ts",
   "types": "dist/index.d.ts",

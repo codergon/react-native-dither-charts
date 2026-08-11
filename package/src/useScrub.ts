@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { GestureResponderEvent } from "react-native";
 import { clamp } from "./utils";
 
@@ -17,8 +17,6 @@ export function useScrub(
   const [isScrubbing, setIsScrubbing] = useState(false);
   const startPoint = useRef({ x: 0, y: 0 });
   const moved = useRef(false);
-  const pendingPoint = useRef<{ x: number; y: number } | null>(null);
-  const frame = useRef<number | null>(null);
   // Tracks the point last shown so a stationary tap on the same spot can dismiss it
   // instead of leaving it stuck until a drag happens (see release()/grant() below).
   const committedRef = useRef<{ x: number; y: number } | null>(null);
@@ -30,31 +28,6 @@ export function useScrub(
       current?.x === next.x && current.y === next.y ? current : next
     );
   }, []);
-
-  const schedulePoint = useCallback(
-    (next: { x: number; y: number }) => {
-      pendingPoint.current = next;
-      if (frame.current != null) return;
-
-      frame.current = requestAnimationFrame(() => {
-        frame.current = null;
-        const pending = pendingPoint.current;
-        pendingPoint.current = null;
-        if (pending) commitPoint(pending);
-      });
-    },
-    [commitPoint]
-  );
-
-  const cancelPendingPoint = useCallback(() => {
-    pendingPoint.current = null;
-    if (frame.current != null) {
-      cancelAnimationFrame(frame.current);
-      frame.current = null;
-    }
-  }, []);
-
-  useEffect(() => cancelPendingPoint, [cancelPendingPoint]);
 
   const pointFromEvent = useCallback(
     (event: GestureResponderEvent) => ({
@@ -73,18 +46,17 @@ export function useScrub(
       if (Math.hypot(deltaX, deltaY) > 5) {
         moved.current = true;
       }
-      schedulePoint(snapPoint ? snapPoint(next) : next);
+      commitPoint(snapPoint ? snapPoint(next) : next);
     },
-    [pointFromEvent, schedulePoint, snapPoint]
+    [commitPoint, pointFromEvent, snapPoint]
   );
 
   const clear = useCallback(() => {
-    cancelPendingPoint();
     committedRef.current = null;
     toggleOffOnRelease.current = false;
     setPoint(null);
     setIsScrubbing(false);
-  }, [cancelPendingPoint]);
+  }, []);
 
   const grant = useCallback(
     (event: GestureResponderEvent) => {
@@ -92,7 +64,6 @@ export function useScrub(
       startPoint.current = next;
       moved.current = false;
       setIsScrubbing(true);
-      cancelPendingPoint();
       const snapped = snapPoint ? snapPoint(next) : next;
       // A tap landing back on the currently shown point is a request to dismiss it,
       // but only commit to that if the gesture turns out to be a stationary tap
@@ -105,14 +76,13 @@ export function useScrub(
       commitPoint(snapped);
       if (tapOnGrant) onTap?.(next);
     },
-    [cancelPendingPoint, commitPoint, onTap, pointFromEvent, snapPoint, tapOnGrant]
+    [commitPoint, onTap, pointFromEvent, snapPoint, tapOnGrant]
   );
 
   const release = useCallback(
     (event: GestureResponderEvent) => {
       const next = pointFromEvent(event);
       if (!moved.current && !tapOnGrant) {
-        cancelPendingPoint();
         if (toggleOffOnRelease.current) {
           committedRef.current = null;
           setPoint(null);
@@ -124,7 +94,7 @@ export function useScrub(
       setIsScrubbing(false);
       if (moved.current) clear();
     },
-    [cancelPendingPoint, clear, commitPoint, onTap, pointFromEvent, snapPoint, tapOnGrant]
+    [clear, commitPoint, onTap, pointFromEvent, snapPoint, tapOnGrant]
   );
 
   const handlers = enabled

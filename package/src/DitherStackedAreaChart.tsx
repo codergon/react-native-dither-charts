@@ -41,10 +41,43 @@ export function DitherStackedAreaChart({
   const xAxisHeight = xAxisConfig ? xAxisConfig.size ?? 20 : 0;
   const plotWidth = Math.max(width - yAxisWidth, 0);
   const plotHeight = Math.max(height - xAxisHeight, 0);
-  const totals = data.map((item) => sum(item.segments.map((segment) => segment.value)));
-  const resolvedMax = maxValue ?? Math.max(...totals, 1);
+  const totals = useMemo(
+    () => data.map((item) => sum(item.segments.map((segment) => segment.value))),
+    [data]
+  );
+  const resolvedMax = useMemo(
+    () => maxValue ?? Math.max(...totals, 1),
+    [maxValue, totals]
+  );
   const step = data.length > 1 ? plotWidth / (data.length - 1) : plotWidth;
-  const seriesCount = Math.max(...data.map((item) => item.segments.length), 0);
+  const seriesCount = useMemo(
+    () => Math.max(...data.map((item) => item.segments.length), 0),
+    [data]
+  );
+  const defaultFocusedDither = useMemo(
+    () => ({
+      ...resolveDither(dither),
+      solidFrom: activeSolidFrom
+    }),
+    [
+      activeSolidFrom,
+      dither?.cellSize,
+      dither?.color,
+      dither?.direction,
+      dither?.dotSize,
+      dither?.endDensity,
+      dither?.gap,
+      dither?.gradientColors,
+      dither?.jitter,
+      dither?.opacity,
+      dither?.pattern,
+      dither?.pixelated,
+      dither?.solidFrom,
+      dither?.startDensity,
+      dither?.strokeWidth,
+      dither?.variant
+    ]
+  );
 
   const series = useMemo(() => {
     const cumulative = data.map(() => 0);
@@ -177,7 +210,12 @@ export function DitherStackedAreaChart({
               const isDimmed =
                 resolvedFocusedSeries != null && resolvedFocusedSeries !== seriesIndex;
               const seriesOpacity = fillOpacity * (isDimmed ? dimOpacity : 1);
-              const ditherOptions = resolveDither(seriesDither);
+              const focusedDither = segment?.dither
+                ? {
+                    ...resolveDither(segment.dither),
+                    solidFrom: activeSolidFrom
+                  }
+                : defaultFocusedDither;
               return (
                 <React.Fragment key={`area-series-${seriesIndex}`}>
                   <FocusCrossfade
@@ -206,11 +244,7 @@ export function DitherStackedAreaChart({
                         width={plotWidth}
                         height={plotHeight}
                         color={seriesColor}
-                        dither={{
-                          ...ditherOptions,
-                          cellSize: ditherOptions.cellSize,
-                          solidFrom: activeSolidFrom
-                        }}
+                        dither={focusedDither}
                         clip={false}
                         opacity={seriesOpacity}
                         densityProgress={densityProgress}

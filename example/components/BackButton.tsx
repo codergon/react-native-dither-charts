@@ -5,14 +5,23 @@ import type { Theme } from "../theme";
 
 // Floats bottom-left over the content on every screen, matching the ticker screen's
 // circular outlined back button, rather than sitting in a top header row.
-export function BackButton({ theme, onPress }: { theme: Theme; onPress: () => void }) {
+export function BackButton({
+  theme,
+  onPress,
+}: {
+  theme: Theme;
+  onPress: () => void;
+}) {
   const insets = useSafeAreaInsets();
   return (
     <View style={[styles.wrapper, { bottom: insets.bottom + 16 }]}>
       <Pressable
         hitSlop={12}
         onPress={onPress}
-        style={[styles.button, { borderColor: theme.border }]}
+        style={[
+          styles.button,
+          { borderColor: theme.border, backgroundColor: theme.background },
+        ]}
       >
         <CaretLeftIcon size={20} color={theme.text} weight="bold" />
       </Pressable>

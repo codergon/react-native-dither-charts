@@ -41,11 +41,38 @@ export function DitherBarChart({
   const plotWidth = Math.max(width - yAxisWidth, 0);
   const plotHeight = Math.max(height - xAxisHeight, 0);
 
-  const resolvedMax = maxValue ?? Math.max(...data.map((item) => item.value), 1);
+  const resolvedMax = useMemo(
+    () => maxValue ?? Math.max(...data.map((item) => item.value), 1),
+    [data, maxValue]
+  );
   const barWidth = data.length > 0 ? (plotWidth - spacing * (data.length - 1)) / data.length : 0;
   const centers = useMemo(
     () => data.map((_, index) => index * (barWidth + spacing) + barWidth / 2),
     [data, barWidth, spacing]
+  );
+  const focusedDither = useMemo(
+    () => ({
+      ...resolveDither(dither),
+      solidFrom: activeSolidFrom
+    }),
+    [
+      activeSolidFrom,
+      dither?.cellSize,
+      dither?.color,
+      dither?.direction,
+      dither?.dotSize,
+      dither?.endDensity,
+      dither?.gap,
+      dither?.gradientColors,
+      dither?.jitter,
+      dither?.opacity,
+      dither?.pattern,
+      dither?.pixelated,
+      dither?.solidFrom,
+      dither?.startDensity,
+      dither?.strokeWidth,
+      dither?.variant
+    ]
   );
 
   const [internalFocusedIndex, setInternalFocusedIndex] = useState<number | null>(null);
@@ -142,11 +169,6 @@ export function DitherBarChart({
               const isActive = scrubIndex === index;
               const isDimmed = scrubIndex != null && scrubIndex !== index;
               const barOpacity = (isActive ? 1 : fillOpacity) * (isDimmed ? dimOpacity : 1);
-              const focusedDither = {
-                ...resolveDither(dither),
-                solidFrom: activeSolidFrom
-              };
-
               return (
                 <React.Fragment key={`${item.label ?? "bar"}-${index}`}>
                   <FocusCrossfade
